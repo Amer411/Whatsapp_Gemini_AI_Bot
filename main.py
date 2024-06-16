@@ -7,9 +7,8 @@ import fitz
 wa_token=os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
 phone_id=os.environ.get("PHONE_ID")
-name="عمرو كريم" 
-bot_name="عمرو" 
-model_name="gemini-1.5-flash-latest" 
+bot_name="عمرو" #This will be the name of your bot, eg: "Hello I am Astro Bot"
+model_name="gemini-1.5-flash-latest" #Switch to "gemini-1.0-pro" or any free model, if "gemini-1.5-flash" becomes paid in future.
 
 app=Flask(__name__)
 
@@ -31,18 +30,10 @@ model = genai.GenerativeModel(model_name=model_name,
                               generation_config=generation_config,
                               safety_settings=safety_settings)
 
-convo = model.start_chat(history=[
-])
+# Store conversation state for each user
+conversations = {}
 
-convo.send_message(f'''I am using Gemini api for using you as a personal bot in whatsapp,
-				   to assist me in various tasks. 
-				   So from now you are "{bot_name}" created by {name} ( Yeah it's me, my name is {name}). 
-				   And don't give any response to this prompt. 
-				   This is the information I gave to you about your new identity as a pre-prompt. 
-				   This message always gets executed when i run this bot script. 
-				   So reply to only the prompts after this. Remeber your new identity is {bot_name}.''')
-
-def send(answer, phone):
+def send(phone, answer):
     url=f"https://graph.facebook.com/v18.0/{phone_id}/messages"
     headers={
         'Authorization': f'Bearer {wa_token}',
@@ -81,13 +72,17 @@ def webhook():
     elif request.method == "POST":
         try:
             data = request.get_json()["entry"][0]["changes"][0]["value"]["messages"][0]
-            phone = data["from"]["id"]  # Extract the phone number from the incoming message
+            phone = data["from"]
+            if phone not in conversations:
+                conversations[phone] = model.start_chat(history=[])
+            convo = conversations[phone]
             if data["type"] == "text":
                 prompt = data["text"]["body"]
                 convo.send_message(prompt)
-                send(convo.last.text, phone)  # Send the response to the extracted phone number
+                send(phone, convo.last.text)
             else:
-                # ... rest of the code ...
+                # Handle media messages...
+                # ...
         except :pass
         return jsonify({"status": "ok"}), 200
 if __name__ == "__main__":
