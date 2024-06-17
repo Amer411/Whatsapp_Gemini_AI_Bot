@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify
 import requests
 import os
 import fitz
+import uuid
 
 wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
@@ -90,39 +91,44 @@ def webhook():
                 media_url = media_response.json()["url"]
                 media_download_response = requests.get(media_url, headers=headers)
                 
-                if data["type"] == "audio":
-                    filename = "/tmp/temp_audio.mp3"
-                elif data["type"] == "image":
-                    filename = "/tmp/temp_image.jpg"
+                file_extension = {
+                    "audio": ".mp3",
+                    "image": ".jpg",
+                    "document": ".pdf"
+                }.get(data["type"], "")
+                
+                if file_extension:
+                    filename = f"/tmp/{uuid.uuid4()}{file_extension}"
                     with open(filename, "wb") as temp_media:
                         temp_media.write(media_download_response.content)
-                    # Extract text from image using PyMuPDF
-                    doc = fitz.open(filename)
-                    text = ""
-                    for page in doc:
-                        text += page.get_text()
-                    # Send text to Gemini model
-                    response = model.generate_content(["What is this", text])
-                    answer = response._result.candidates[0].content.parts[0].text
-                elif data["type"] == "document":
-                    filename = "/tmp/temp_document.pdf"
-                    with open(filename, "wb") as temp_media:
-                        temp_media.write(media_download_response.content)
-                    # Extract text from PDF document using PyMuPDF
-                    doc = fitz.open(filename)
-                    text = ""
-                    for page in doc:
-                        text += page.get_text()
-                    # Send text to Gemini model
-                    response = model.generate_content(["What is this", text])
-                    answer = response._result.candidates[0].content.parts[0].text
+                    
+                    if data["type"] == "image":
+                        doc = fitz.open(filename)
+                        text = ""
+                        for page in doc:
+                            text += page.get_text()
+                        response = model.generate_content(["What is this", text])
+                        answer = response._result.candidates[0].content.parts[0].text
+                    
+                    elif data["type"] == "document":
+                        doc = fitz.open(filename)
+                        text = ""
+                        for page in doc:
+                            text += page.get_text()
+                        response = model.generate_content(["What is this", text])
+                        answer = response._result.candidates[0].content.parts[0].text
+
+                    else:
+                        send(phone, "This format is not supported by the bot ☹")
+                        return jsonify({"status": "ok"}), 200
+
+                    convo.send_message(f"This message is created by an AI model based on the user's input: {answer}")
+                    send(phone, convo.last.text)
+                    remove(filename)
                 else:
                     send(phone, "This format is not supported by the bot ☹")
                     return jsonify({"status": "ok"}), 200
-
-                convo.send_message(f"This message is created by an AI model based on the user's input: {answer}")
-                send(phone, convo.last.text)
-                remove(filename)
+                
         except Exception as e:
             print(f"Error: {e}")
 
