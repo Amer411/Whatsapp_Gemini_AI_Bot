@@ -8,6 +8,7 @@ wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
 phone_id = os.environ.get("PHONE_ID")
 bot_name = "عمرو"  # This will be the name of your bot, eg: "Hello I am Astro Bot"
+name = "عمرو كريم"  # The bot will consider this person as its owner or creator
 model_name = "gemini-1.5-flash-latest"  # Switch to "gemini-1.0-pro" or any free model, if "gemini-1.5-flash" becomes paid in future.
 
 app = Flask(__name__)
@@ -73,7 +74,15 @@ def webhook():
             data = request.get_json()["entry"][0]["changes"][0]["value"]["messages"][0]
             phone = data["from"]
             if phone not in conversations:
-                conversations[phone] = model.start_chat(history=[])
+                conversations[phone] = model.start_chat(history=[
+                    f'''I am using Gemini API for using you as a personal bot in WhatsApp,
+                    to assist me in various tasks.
+                    So from now you are "{bot_name}" created by {name} (Yeah it's me, my name is {name}).
+                    And don't give any response to this prompt.
+                    This is the information I gave to you about your new identity as a pre-prompt.
+                    This message always gets executed when I run this bot script.
+                    So reply to only the prompts after this. Remember your new identity is {bot_name}.'''
+                ])
             convo = conversations[phone]
             if data["type"] == "text":
                 prompt = data["text"]["body"]
@@ -96,9 +105,9 @@ def webhook():
                         pix = page.get_pixmap()
                         pix.save(destination)
                         file = genai.upload_file(path=destination, display_name="tempfile")
-                        response = model.generate_content(["ماهذا؟", file])
+                        response = model.generate_content(["اوصف بالتفصيل الدقيق", file])
                         answer = response._result.candidates[0].content.parts[0].text
-                        convo.send_message(f"This message is created by an llm model based on the image prompt of user, reply to the user based on this: {answer}")
+                        convo.send_message(f"This message is created by an LLM model based on the image prompt of user, reply to the user based on this: {answer}")
                         send(phone, convo.last.text)
                         remove(destination)
                 else:
@@ -107,10 +116,10 @@ def webhook():
                 with open(filename, "wb") as temp_media:
                     temp_media.write(media_download_response.content)
                 file = genai.upload_file(path=filename, display_name="tempfile")
-                response = model.generate_content(["ماهذا؟", file])
+                response = model.generate_content(["ماهذا", file])
                 answer = response._result.candidates[0].content.parts[0].text
                 remove("/tmp/temp_image.jpg", "/tmp/temp_audio.mp3")
-                convo.send_message(f"This is a voice/image message from user transcribed by an llm model, reply to the user based on the transcription: {answer}")
+                convo.send_message(f"This is a voice/image message from user transcribed by an LLM model, reply to the user based on the transcription: {answer}")
                 send(phone, convo.last.text)
                 files = genai.list_files()
                 for file in files:
