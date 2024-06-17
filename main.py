@@ -8,6 +8,7 @@ wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
 phone_id = os.environ.get("PHONE_ID")
 bot_name = "عمرو"  # This will be the name of your bot, eg: "Hello I am Astro Bot"
+name = "عمرو كريم"  # The bot will consider this person as its owner or creator
 model_name = "gemini-1.5-flash-latest"  # Switch to "gemini-1.0-pro" or any free model, if "gemini-1.5-flash" becomes paid in future.
 
 app = Flask(__name__)
@@ -73,7 +74,15 @@ def webhook():
             data = request.get_json()["entry"][0]["changes"][0]["value"]["messages"][0]
             phone = data["from"]
             if phone not in conversations:
-                conversations[phone] = model.start_chat(history=[])
+                conversations[phone] = model.start_chat(history=[
+                    f'''أنا أستخدم واجهة Gemini API لاستخدامك كروبوت شخصي على واتساب،
+                    لمساعدتي في مهام مختلفة.
+                    من الآن فصاعداً، اسمك هو "{bot_name}" وتم إنشاؤك بواسطة {name} (نعم، هذا أنا، اسمي {name}).
+                    ولا تعطِ أي استجابة لهذه الرسالة.
+                    هذه هي المعلومات التي قدمتها لك عن هويتك الجديدة كمقدمة.
+                    يتم تنفيذ هذه الرسالة دائمًا عند تشغيل هذا السكربت.
+                    لذا رد فقط على الرسائل بعد هذا. تذكر أن هويتك الجديدة هي {bot_name}.'''
+                ])
             convo = conversations[phone]
             if data["type"] == "text":
                 prompt = data["text"]["body"]
@@ -96,21 +105,21 @@ def webhook():
                         pix = page.get_pixmap()
                         pix.save(destination)
                         file = genai.upload_file(path=destination, display_name="tempfile")
-                        response = model.generate_content(["What is this", file])
+                        response = model.generate_content(["أوصف الصورة بالتفصيل", file])
                         answer = response._result.candidates[0].content.parts[0].text
-                        convo.send_message(f"This message is created by an llm model based on the image prompt of user, reply to the user based on this: {answer}")
+                        convo.send_message(f"هذه الرسالة أنشأها نموذج لغوي بناءً على صورة المستخدم، الرد على المستخدم بناءً على هذا: {answer}")
                         send(phone, convo.last.text)
                         remove(destination)
                 else:
-                    send(phone, "This format is not Supported by the bot ☹")
+                    send(phone, "هذا النوع من الملفات غير مدعوم بواسطة البوت ☹")
                     return jsonify({"status": "ok"}), 200
                 with open(filename, "wb") as temp_media:
                     temp_media.write(media_download_response.content)
                 file = genai.upload_file(path=filename, display_name="tempfile")
-                response = model.generate_content(["What is this", file])
+                response = model.generate_content(["ما هذا", file])
                 answer = response._result.candidates[0].content.parts[0].text
                 remove("/tmp/temp_image.jpg", "/tmp/temp_audio.mp3")
-                convo.send_message(f"This is a voice/image message from user transcribed by an llm model, reply to the user based on the transcription: {answer}")
+                convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج لغوي، الرد على المستخدم بناءً على النص المحول: {answer}")
                 send(phone, convo.last.text)
                 files = genai.list_files()
                 for file in files:
