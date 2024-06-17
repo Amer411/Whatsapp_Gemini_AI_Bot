@@ -96,7 +96,7 @@ def webhook():
                         pix = page.get_pixmap()
                         pix.save(destination)
                         file = genai.upload_file(path=destination, display_name="tempfile")
-                        response = model.generate_content(["اشرح", file])
+                        response = model.generate_content(["اشرح محتوى الصوره", file])
                         answer = response._result.candidates[0].content.parts[0].text
                         convo.send_message(f"This message is created by an llm model based on the image prompt of user, reply to the user based on this: {answer}")
                         send(phone, convo.last.text)
@@ -107,7 +107,7 @@ def webhook():
                 with open(filename, "wb") as temp_media:
                     temp_media.write(media_download_response.content)
                 file = genai.upload_file(path=filename, display_name="tempfile")
-                response = model.generate_content(["اشرح", file])
+                response = model.generate_content(["ماهذا؟", file])
                 answer = response._result.candidates[0].content.parts[0].text
                 remove("/tmp/temp_image.jpg", "/tmp/temp_audio.mp3")
                 convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج الذكاء الاصطناعي، الرد على المستخدم بناءً على هذا: {answer}")
