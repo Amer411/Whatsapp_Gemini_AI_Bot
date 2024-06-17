@@ -81,7 +81,39 @@ def webhook():
                 send(phone, convo.last.text)
             else:
                 # Handle media messages...
-                pass
+                media_url_endpoint = f'https://graph.facebook.com/v18.0/{data[data["type"]]["id"]}/'
+                headers = {'Authorization': f'Bearer {wa_token}'}
+                media_response = requests.get(media_url_endpoint, headers=headers)
+                media_url = media_response.json()["url"]
+                media_download_response = requests.get(media_url, headers=headers)
+                if data["type"] == "audio":
+                    filename = "/tmp/temp_audio.mp3"
+                elif data["type"] == "image":
+                    filename = "/tmp/temp_image.jpg"
+                elif data["type"] == "document":
+                    doc=fitz.open(stream=media_download_response.content,filetype="pdf")
+                    for _,page in enumerate(doc):
+                        destination="/tmp/temp_image.jpg"
+                        pix = page.get_pixmap()
+                        pix.save(destination)
+                        file = genai.upload_file(path=destination,display_name="tempfile")
+                        response = model.generate_content(["What is this",file])
+                        answer=response._result.candidates[0].content.parts[0].text
+                        convo.send_message(f"This message is created by an llm model based on the image prompt of user, reply to the user based on this: {answer}")
+                        send(convo.last.text)
+                        remove(destination)
+                else:send("This format is not Supported by the bot ☹")
+                with open(filename, "wb") as temp_media:
+                    temp_media.write(media_download_response.content)
+                file = genai.upload_file(path=filename,display_name="tempfile")
+                response = model.generate_content(["What is this",file])
+                answer=response._result.candidates[0].content.parts[0].text
+                remove("/tmp/temp_image.jpg","/tmp/temp_audio.mp3")
+                convo.send_message(f"This is an voice/image message from user transcribed by an llm model, reply to the user based on the transcription: {answer}")
+                send(convo.last.text)
+                files=genai.list_files()
+                for file in files:
+                    file.delete()
         except Exception as e:
             print(f"Error: {e}")
         return jsonify({"status": "ok"}), 200
