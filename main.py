@@ -96,7 +96,7 @@ def webhook():
                         pix = page.get_pixmap()
                         pix.save(destination)
                         file = genai.upload_file(path=destination, display_name="tempfile")
-                        response = model.generate_content(["صف هذا بالتفصيل", file])
+                        response = model.generate_content(["اشرح", file])
                         answer = response._result.candidates[0].content.parts[0].text
                         convo.send_message(f"This message is created by an llm model based on the image prompt of user, reply to the user based on this: {answer}")
                         send(phone, convo.last.text)
