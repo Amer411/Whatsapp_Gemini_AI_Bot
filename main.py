@@ -1,18 +1,14 @@
-import asyncio
-import os
-import fitz
+import google.generativeai as genai
 from flask import Flask, request, jsonify
 import requests
-import google.generativeai as genai
-from concurrent.futures import ThreadPoolExecutor
+import os
+import fitz
 
-# إعداد المتغيرات الضرورية
 wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
 phone_id = os.environ.get("PHONE_ID")
-name = "عمرو كريم"
-bot_name = "عمرو"
-model_name = "gemini-1.5-flash-latest"
+bot_name = "عمرو"  # This will be the name of your bot, eg: "Hello I am Astro Bot"
+model_name = "gemini-1.5-flash-latest"  # Switch to "gemini-1.0-pro" or any free model, if "gemini-1.5-flash" becomes paid in future.
 
 app = Flask(__name__)
 
@@ -34,9 +30,8 @@ model = genai.GenerativeModel(model_name=model_name,
                               generation_config=generation_config,
                               safety_settings=safety_settings)
 
+# Store conversation state for each user
 conversations = {}
-
-executor = ThreadPoolExecutor(max_workers=10)
 
 def send(phone, answer):
     url = f"https://graph.facebook.com/v18.0/{phone_id}/messages"
@@ -59,59 +54,6 @@ def remove(*file_paths):
         if os.path.exists(file):
             os.remove(file)
 
-async def process_message(data):
-    phone = data["from"]
-    if phone not in conversations:
-        conversations[phone] = model.start_chat(history=[])
-        convo = conversations[phone]
-        convo.send_message(f''' 
-        من الآن فصاعدًا أنت "{bot_name}"، تم إنشاؤك بواسطة {name} (نعم أنا، اسمي {name}). 
-        لا تقدم أي رد على هذه الرسالة. 
-        هذه المعلومات التي أعطيتها لك عن هويتك الجديدة كرسالة مسبقة. 
-        تتم تنفيذ هذه الرسالة دائمًا عند تشغيل سكريبت البوت. 
-        لذا، قم بالرد فقط على الرسائل بعد هذه. تذكر أن هويتك الجديدة هي {bot_name}.''')
-    convo = conversations[phone]
-    if data["type"] == "text":
-        prompt = data["text"]["body"]
-        convo.send_message(prompt)
-        send(phone, convo.last.text)
-    else:
-        media_url_endpoint = f'https://graph.facebook.com/v18.0/{data[data["type"]]["id"]}/'
-        headers = {'Authorization': f'Bearer {wa_token}'}
-        media_response = requests.get(media_url_endpoint, headers=headers)
-        media_url = media_response.json()["url"]
-        media_download_response = requests.get(media_url, headers=headers)
-        if data["type"] == "audio":
-            filename = "/tmp/temp_audio.mp3"
-        elif data["type"] == "image":
-            filename = "/tmp/temp_image.jpg"
-        elif data["type"] == "document":
-            doc = fitz.open(stream=media_download_response.content, filetype="pdf")
-            for _, page in enumerate(doc):
-                destination = "/tmp/temp_image.jpg"
-                pix = page.get_pixmap()
-                pix.save(destination)
-                file = genai.upload_file(path=destination, display_name="tempfile")
-                response = model.generate_content(["ما هذا؟", file])
-                answer = response._result.candidates[0].content.parts[0].text
-                convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج لغوي، قم بالتحليل الدقيق وقم بالرد على المستخدم بناءً على النص المحول: {answer}")
-                send(phone, convo.last.text)
-                remove(destination)
-        else:
-            send(phone, "This format is not Supported by the bot ☹")
-            return
-        with open(filename, "wb") as temp_media:
-            temp_media.write(media_download_response.content)
-        file = genai.upload_file(path=filename, display_name="tempfile")
-        response = model.generate_content(["ما هذا؟", file])
-        answer = response._result.candidates[0].content.parts[0].text
-        remove("/tmp/temp_image.jpg", "/tmp/temp_audio.mp3")
-        convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج لغوي، قم بالتحليل الدقيق وقم بالرد على المستخدم بناءً على النص المحول: {answer}")
-        send(phone, convo.last.text)
-        files = genai.list_files()
-        for file in files:
-            file.delete()
-
 @app.route("/", methods=["GET", "POST"])
 def index():
     return "Bot"
@@ -129,8 +71,17 @@ def webhook():
     elif request.method == "POST":
         try:
             data = request.get_json()["entry"][0]["changes"][0]["value"]["messages"][0]
-            loop = asyncio.get_event_loop()
-            loop.run_in_executor(executor, process_message, data)
+            phone = data["from"]
+            if phone not in conversations:
+                conversations[phone] = model.start_chat(history=[])
+            convo = conversations[phone]
+            if data["type"] == "text":
+                prompt = data["text"]["body"]
+                convo.send_message(prompt)
+                send(phone, convo.last.text)
+            else:
+                # Handle media messages...
+                pass
         except Exception as e:
             print(f"Error: {e}")
         return jsonify({"status": "ok"}), 200
