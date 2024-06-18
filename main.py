@@ -2,7 +2,7 @@ import google.generativeai as genai
 from flask import Flask, request, jsonify
 import requests
 import os
-import fitz 
+import fitz
 
 wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
@@ -17,6 +17,7 @@ generation_config = {
     "top_p": 0.95,
     "top_k": 0,
     "max_output_tokens": 8192,
+    "language": "ar"  # Ensure the language is set to Arabic
 }
 
 safety_settings = [
@@ -96,21 +97,21 @@ def webhook():
                         pix = page.get_pixmap()
                         pix.save(destination)
                         file = genai.upload_file(path=destination, display_name="tempfile")
-                        response = model.generate_content(["What is this", file])
+                        response = model.generate_content(["صف هذه الصورة بالتفصيل", file])
                         answer = response._result.candidates[0].content.parts[0].text
-                        convo.send_message(f"This message is created by an llm model based on the image prompt of user, reply to the user based on this: {answer}")
+                        convo.send_message(f"هذه الرسالة أنشأها نموذج الذكاء الاصطناعي بناءً على صورة المستخدم: {answer}")
                         send(phone, convo.last.text)
                         remove(destination)
                 else:
-                    send(phone, "This format is not Supported by the bot ☹")
+                    send(phone, "هذا النوع من الوسائط غير مدعوم من البوت ☹")
                     return jsonify({"status": "ok"}), 200
                 with open(filename, "wb") as temp_media:
                     temp_media.write(media_download_response.content)
                 file = genai.upload_file(path=filename, display_name="tempfile")
-                response = model.generate_content(["What is this", file])
+                response = model.generate_content(["ما هذا", file])
                 answer = response._result.candidates[0].content.parts[0].text
                 remove("/tmp/temp_image.jpg", "/tmp/temp_audio.mp3")
-                convo.send_message(f"This is a voice/image message from user transcribed by an llm model, reply to the user based on the transcription: {answer}")
+                convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج الذكاء الاصطناعي، الرد على المستخدم بناءً على هذا: {answer}")
                 send(phone, convo.last.text)
                 files = genai.list_files()
                 for file in files:
