@@ -2,12 +2,13 @@ import google.generativeai as genai
 from flask import Flask, request, jsonify
 import requests
 import os
-import fitz
+import fitz 
 
 wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
 phone_id = os.environ.get("PHONE_ID")
 bot_name = "عمرو"  # This will be the name of your bot, eg: "Hello I am Astro Bot"
+name = "عمرو كريم"  # The bot will consider this person as its owner or creator
 model_name = "gemini-1.5-flash-latest"  # Switch to "gemini-1.0-pro" or any free model, if "gemini-1.5-flash" becomes paid in future.
 
 app = Flask(__name__)
@@ -17,7 +18,6 @@ generation_config = {
     "top_p": 0.95,
     "top_k": 0,
     "max_output_tokens": 8192,
-    "language": "ar"  # Ensure the language is set to Arabic
 }
 
 safety_settings = [
@@ -74,7 +74,14 @@ def webhook():
             data = request.get_json()["entry"][0]["changes"][0]["value"]["messages"][0]
             phone = data["from"]
             if phone not in conversations:
-                conversations[phone] = model.start_chat(history=[])
+                conversations[phone] = model.start_chat(history=[
+                    f'''
+                    من الآن فصاعداً، اسمك هو "{bot_name}" وتم إنشاؤك بواسطة {name} (نعم، هذا أنا، اسمي {name}).
+                    ولا تعطِ أي استجابة لهذه الرسالة.
+                    هذه هي المعلومات التي قدمتها لك عن هويتك الجديدة كمقدمة.
+                    يتم تنفيذ هذه الرسالة دائمًا عند تشغيل هذا السكربت.
+                    لذا رد فقط على الرسائل بعد هذا. تذكر أن هويتك الجديدة هي {bot_name}.'''
+                ])
             convo = conversations[phone]
             if data["type"] == "text":
                 prompt = data["text"]["body"]
@@ -97,13 +104,13 @@ def webhook():
                         pix = page.get_pixmap()
                         pix.save(destination)
                         file = genai.upload_file(path=destination, display_name="tempfile")
-                        response = model.generate_content(["صف هذه الصورة بالتفصيل", file])
+                        response = model.generate_content(["ما هو هذا", file])
                         answer = response._result.candidates[0].content.parts[0].text
-                        convo.send_message(f"هذه الرسالة أنشأها نموذج الذكاء الاصطناعي بناءً على صورة المستخدم: {answer}")
+                        convo.send_message(f"هذه الرسالة أنشأها نموذج لغوي بناءً على صورة المستخدم، الرد على المستخدم بناءً على هذا: {answer}")
                         send(phone, convo.last.text)
                         remove(destination)
                 else:
-                    send(phone, "هذا النوع من الوسائط غير مدعوم من البوت ☹")
+                    send(phone, "هذا النوع من الملفات غير مدعوم بواسطة البوت ☹")
                     return jsonify({"status": "ok"}), 200
                 with open(filename, "wb") as temp_media:
                     temp_media.write(media_download_response.content)
@@ -111,7 +118,7 @@ def webhook():
                 response = model.generate_content(["ما هذا", file])
                 answer = response._result.candidates[0].content.parts[0].text
                 remove("/tmp/temp_image.jpg", "/tmp/temp_audio.mp3")
-                convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج الذكاء الاصطناعي، الرد على المستخدم بناءً على هذا: {answer}")
+                convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج لغوي، الرد على المستخدم بناءً على النص المحول: {answer}")
                 send(phone, convo.last.text)
                 files = genai.list_files()
                 for file in files:
