@@ -95,9 +95,8 @@ def webhook():
                         pix = page.get_pixmap()
                         pix.save(destination)
                         comment = data.get("caption", "")
-                        prompt = f"التعليق: {comment}\nالرجاء وصف محتوى الصورة التالية."
                         file = genai.upload_file(path=destination, display_name="tempfile")
-                        response = model.generate_content([prompt, file])
+                        response = model.generate_content([comment, file])
                         answer = response._result.candidates[0].content.parts[0].text
                         convo.send_message(answer)
                         send(phone, convo.last.text)
@@ -108,9 +107,8 @@ def webhook():
                 with open(filename, "wb") as temp_media:
                     temp_media.write(media_download_response.content)
                 comment = data.get("caption", "")
-                prompt = f"التعليق: {comment}\nالرجاء وصف محتوى الصورة التالية."
                 file = genai.upload_file(path=filename, display_name="tempfile")
-                response = model.generate_content([prompt, file])
+                response = model.generate_content([comment, file])
                 answer = response._result.candidates[0].content.parts[0].text
                 convo.send_message(answer)
                 send(phone, convo.last.text)
