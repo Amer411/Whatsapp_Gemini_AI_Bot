@@ -106,7 +106,7 @@ def webhook():
                         file = genai.upload_file(path=destination, display_name="tempfile")
                         response = model.generate_content(["ما هذا؟", file])
                         answer = response._result.candidates[0].content.parts[0].text
-                        convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج لغوي، الرد على المستخدم بناءً على النص المحول: {answer}")
+                        convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج لغوي، قم بالتحليل الدقيق وقم بالرد على المستخدم بناءً على النص المحول: {answer}")
                         send(phone, convo.last.text)
                         remove(destination)
                 else:
@@ -118,7 +118,7 @@ def webhook():
                 response = model.generate_content(["ما هذا؟", file])
                 answer = response._result.candidates[0].content.parts[0].text
                 remove("/tmp/temp_image.jpg", "/tmp/temp_audio.mp3")
-                convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج لغوي، الرد على المستخدم بناءً على النص المحول: {answer}")
+                convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج لغوي، قم بالتحليل الدقيق وقم بالرد على المستخدم بناءً على النص المحول: {answer}")
                 send(phone, convo.last.text)
                 files = genai.list_files()
                 for file in files:
