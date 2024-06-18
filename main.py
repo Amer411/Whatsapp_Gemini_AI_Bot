@@ -8,7 +8,7 @@ wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
 phone_id = os.environ.get("PHONE_ID")
 bot_name = "عمرو"
-model_name = "gemini-1.5-flash-latest"
+model_name = "gemini-pro-vision"  # اسم النموذج المحدث
 
 app = Flask(__name__)
 
