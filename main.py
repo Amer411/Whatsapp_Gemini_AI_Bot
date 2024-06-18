@@ -3,9 +3,6 @@ from flask import Flask, request, jsonify
 import requests
 import os
 import fitz
-import pytesseract
-from PIL import Image
-import io
 
 wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
@@ -56,11 +53,6 @@ def remove(*file_paths):
         if os.path.exists(file):
             os.remove(file)
 
-def extract_text_from_image(image_path):
-    image = Image.open(image_path)
-    text = pytesseract.image_to_string(image, lang='ara')
-    return text
-
 @app.route("/", methods=["GET", "POST"])
 def index():
     return "Bot"
@@ -102,10 +94,12 @@ def webhook():
                         destination = "/tmp/temp_image.jpg"
                         pix = page.get_pixmap()
                         pix.save(destination)
-                        text_from_image = extract_text_from_image(destination)
                         comment = data.get("caption", "")
-                        prompt = f"التعليق: {comment}\nالنص المستخرج من الصورة: {text_from_image}"
-                        convo.send_message(prompt)
+                        prompt = f"التعليق: {comment}\nالرجاء وصف محتوى الصورة التالية."
+                        file = genai.upload_file(path=destination, display_name="tempfile")
+                        response = model.generate_content([prompt, file])
+                        answer = response._result.candidates[0].content.parts[0].text
+                        convo.send_message(answer)
                         send(phone, convo.last.text)
                         remove(destination)
                 else:
@@ -113,10 +107,12 @@ def webhook():
                     return jsonify({"status": "ok"}), 200
                 with open(filename, "wb") as temp_media:
                     temp_media.write(media_download_response.content)
-                text_from_image = extract_text_from_image(filename)
                 comment = data.get("caption", "")
-                prompt = f"التعليق: {comment}\nالنص المستخرج من الصورة: {text_from_image}"
-                convo.send_message(prompt)
+                prompt = f"التعليق: {comment}\nالرجاء وصف محتوى الصورة التالية."
+                file = genai.upload_file(path=filename, display_name="tempfile")
+                response = model.generate_content([prompt, file])
+                answer = response._result.candidates[0].content.parts[0].text
+                convo.send_message(answer)
                 send(phone, convo.last.text)
                 remove("/tmp/temp_image.jpg", "/tmp/temp_audio.mp3")
         except Exception as e:
