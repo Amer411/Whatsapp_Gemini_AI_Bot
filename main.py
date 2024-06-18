@@ -2,8 +2,7 @@ import google.generativeai as genai
 from flask import Flask, request, jsonify
 import requests
 import os
-from google.cloud import vision
-from google.oauth2 import service_account
+import fitz
 
 wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
@@ -80,41 +79,13 @@ def webhook():
                 convo.send_message(prompt)
                 send(phone, convo.last.text)
             elif data["type"] == "image":
-                media_url_endpoint = f'https://graph.facebook.com/v18.0/{data["image"]["id"]}/'
-                headers = {'Authorization': f'Bearer {wa_token}'}
-                media_response = requests.get(media_url_endpoint, headers=headers)
-                media_url = media_response.json()["url"]
-                media_download_response = requests.get(media_url, headers=headers)
-
-                filename = "/tmp/temp_image.jpg"
-                with open(filename, "wb") as temp_media:
-                    temp_media.write(media_download_response.content)
-                
-                # استخدام Google Vision API لاستخراج النص من الصورة
-                credentials = service_account.Credentials.from_service_account_file("path_to_your_service_account.json")
-                client = vision.ImageAnnotatorClient(credentials=credentials)
-
-                with open(filename, "rb") as image_file:
-                    content = image_file.read()
-                
-                image = vision.Image(content=content)
-                response = client.text_detection(image=image)
-                texts = response.text_annotations
-
-                if texts:
-                    extracted_text = texts[0].description.strip()
-                else:
-                    extracted_text = "لم أتمكن من استخراج أي نص من الصورة."
-
                 comment = data.get("caption", "")
-                answer = f"{comment}\nالنص المستخرج: {extracted_text}"
-                convo.send_message(answer)
+                response_text = f"تم استلام الصورة.\n{comment}" if comment else "تم استلام الصورة."
+                convo.send_message(response_text)
                 send(phone, convo.last.text)
-                remove(filename)
             else:
                 send(phone, "هذا التنسيق غير مدعوم من قبل البوت ☹")
                 return jsonify({"status": "ok"}), 200
-
         except Exception as e:
             print(f"Error: {e}")
         return jsonify({"status": "ok"}), 200
