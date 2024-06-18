@@ -3,7 +3,9 @@ from flask import Flask, request, jsonify
 import requests
 import os
 import fitz
-from threading import Thread
+from concurrent.futures import ThreadPoolExecutor
+import aiohttp
+import asyncio
 
 # إعداد المتغيرات الضرورية
 wa_token = os.environ.get("WA_TOKEN")
@@ -35,7 +37,9 @@ model = genai.GenerativeModel(model_name=model_name,
 
 conversations = {}
 
-def send(phone, answer):
+executor = ThreadPoolExecutor(max_workers=10)
+
+async def async_send(phone, answer):
     url = f"https://graph.facebook.com/v18.0/{phone_id}/messages"
     headers = {
         'Authorization': f'Bearer {wa_token}',
@@ -48,13 +52,19 @@ def send(phone, answer):
         "text": {"body": f"{answer}"},
     }
 
-    response = requests.post(url, headers=headers, json=data)
-    return response
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, headers=headers, json=data) as response:
+            return await response.text()
 
 def remove(*file_paths):
     for file in file_paths:
         if os.path.exists(file):
             os.remove(file)
+
+async def async_media_download(url, headers):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as response:
+            return await response.read()
 
 def process_message(data):
     phone = data["from"]
@@ -68,22 +78,25 @@ def process_message(data):
         تتم تنفيذ هذه الرسالة دائمًا عند تشغيل سكريبت البوت. 
         لذا، قم بالرد فقط على الرسائل بعد هذه. تذكر أن هويتك الجديدة هي {bot_name}.''')
     convo = conversations[phone]
-    if data["type"] == "text":
-        prompt = data["text"]["body"]
+    
+    async def handle_text(prompt):
         convo.send_message(prompt)
-        send(phone, convo.last.text)
-    else:
-        media_url_endpoint = f'https://graph.facebook.com/v18.0/{data[data["type"]]["id"]}/'
+        await async_send(phone, convo.last.text)
+    
+    async def handle_media(media_type, media_id):
+        media_url_endpoint = f'https://graph.facebook.com/v18.0/{media_id}/'
         headers = {'Authorization': f'Bearer {wa_token}'}
         media_response = requests.get(media_url_endpoint, headers=headers)
         media_url = media_response.json()["url"]
-        media_download_response = requests.get(media_url, headers=headers)
-        if data["type"] == "audio":
+        media_content = await async_media_download(media_url, headers)
+        
+        if media_type == "audio":
             filename = "/tmp/temp_audio.mp3"
-        elif data["type"] == "image":
+        elif media_type == "image":
             filename = "/tmp/temp_image.jpg"
-        elif data["type"] == "document":
-            doc = fitz.open(stream=media_download_response.content, filetype="pdf")
+        elif media_type == "document":
+            filename = None  # We'll handle PDFs separately
+            doc = fitz.open(stream=media_content, filetype="pdf")
             for _, page in enumerate(doc):
                 destination = "/tmp/temp_image.jpg"
                 pix = page.get_pixmap()
@@ -92,22 +105,29 @@ def process_message(data):
                 response = model.generate_content(["ما هذا؟", file])
                 answer = response._result.candidates[0].content.parts[0].text
                 convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج لغوي، قم بالتحليل الدقيق وقم بالرد على المستخدم بناءً على النص المحول: {answer}")
-                send(phone, convo.last.text)
+                await async_send(phone, convo.last.text)
                 remove(destination)
-        else:
-            send(phone, "This format is not Supported by the bot ☹")
             return
+        
         with open(filename, "wb") as temp_media:
-            temp_media.write(media_download_response.content)
+            temp_media.write(media_content)
         file = genai.upload_file(path=filename, display_name="tempfile")
         response = model.generate_content(["ما هذا؟", file])
         answer = response._result.candidates[0].content.parts[0].text
         remove("/tmp/temp_image.jpg", "/tmp/temp_audio.mp3")
         convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج لغوي، قم بالتحليل الدقيق وقم بالرد على المستخدم بناءً على النص المحول: {answer}")
-        send(phone, convo.last.text)
+        await async_send(phone, convo.last.text)
         files = genai.list_files()
         for file in files:
             file.delete()
+    
+    if data["type"] == "text":
+        prompt = data["text"]["body"]
+        asyncio.run(handle_text(prompt))
+    else:
+        media_type = data["type"]
+        media_id = data[data["type"]]["id"]
+        asyncio.run(handle_media(media_type, media_id))
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -126,7 +146,7 @@ def webhook():
     elif request.method == "POST":
         try:
             data = request.get_json()["entry"][0]["changes"][0]["value"]["messages"][0]
-            Thread(target=process_message, args=(data,)).start()
+            executor.submit(process_message, data)
         except Exception as e:
             print(f"Error: {e}")
         return jsonify({"status": "ok"}), 200
