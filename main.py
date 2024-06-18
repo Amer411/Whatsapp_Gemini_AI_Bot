@@ -2,13 +2,13 @@ import google.generativeai as genai
 from flask import Flask, request, jsonify
 import requests
 import os
-import fitz
+import fitz 
 
 wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
 phone_id = os.environ.get("PHONE_ID")
-bot_name = "عمرو"
-model_name = "gemini-1.5-flash-latest"
+bot_name = "عمرو"  # This will be the name of your bot, eg: "Hello I am Astro Bot"
+model_name = "gemini-1.5-flash-latest"  # Switch to "gemini-1.0-pro" or any free model, if "gemini-1.5-flash" becomes paid in future.
 
 app = Flask(__name__)
 
@@ -30,6 +30,7 @@ model = genai.GenerativeModel(model_name=model_name,
                               generation_config=generation_config,
                               safety_settings=safety_settings)
 
+# Store conversation state for each user
 conversations = {}
 
 def send(phone, answer):
@@ -79,53 +80,41 @@ def webhook():
                 convo.send_message(prompt)
                 send(phone, convo.last.text)
             else:
-                media_id = data[data["type"]]["id"]
-                media_url_endpoint = f'https://graph.facebook.com/v18.0/{media_id}'
+                media_url_endpoint = f'https://graph.facebook.com/v18.0/{data[data["type"]]["id"]}/'
                 headers = {'Authorization': f'Bearer {wa_token}'}
                 media_response = requests.get(media_url_endpoint, headers=headers)
                 media_url = media_response.json()["url"]
                 media_download_response = requests.get(media_url, headers=headers)
-                
                 if data["type"] == "audio":
                     filename = "/tmp/temp_audio.mp3"
                 elif data["type"] == "image":
                     filename = "/tmp/temp_image.jpg"
                 elif data["type"] == "document":
                     doc = fitz.open(stream=media_download_response.content, filetype="pdf")
-                    for page_num, page in enumerate(doc):
-                        destination = f"/tmp/temp_image_{page_num}.jpg"
+                    for _, page in enumerate(doc):
+                        destination = "/tmp/temp_image.jpg"
                         pix = page.get_pixmap()
                         pix.save(destination)
-                        comment = data.get("caption", "")
-                        instruction = "أرجو أن تصف محتوى الصورة بالتفصيل باللغة العربية."
-                        combined_text = f"{instruction} {comment}"
                         file = genai.upload_file(path=destination, display_name="tempfile")
-                        response = model.generate_content([combined_text, file])
+                        response = model.generate_content(["What is this", file])
                         answer = response._result.candidates[0].content.parts[0].text
-                        convo.send_message(answer)
+                        convo.send_message(f"This message is created by an llm model based on the image prompt of user, reply to the user based on this: {answer}")
                         send(phone, convo.last.text)
                         remove(destination)
                 else:
-                    send(phone, "هذا التنسيق غير مدعوم من قبل البوت ☹")
+                    send(phone, "This format is not Supported by the bot ☹")
                     return jsonify({"status": "ok"}), 200
-
                 with open(filename, "wb") as temp_media:
                     temp_media.write(media_download_response.content)
-
-                if data["type"] == "image":
-                    comment = data.get("caption", "")
-                    instruction = "أرجو أن تصف محتوى الصورة بالتفصيل باللغة العربية."
-                    combined_text = f"{instruction} {comment}"
-                    file = genai.upload_file(path=filename, display_name="tempfile")
-                    response = model.generate_content([combined_text, file])
-                    answer = response._result.candidates[0].content.parts[0].text
-                    convo.send_message(answer)
-                    send(phone, convo.last.text)
-                    remove(filename)
-                elif data["type"] == "audio":
-                    # للتعامل مع ملفات الصوت، يمكن تحويلها إلى نص باستخدام خدمات التعرف على الصوت قبل إرسالها للنموذج إذا كانت هذه الوظيفة متاحة.
-                    send(phone, "ملفات الصوت ليست مدعومة حاليا ☹")
-                    remove(filename)
+                file = genai.upload_file(path=filename, display_name="tempfile")
+                response = model.generate_content(["What is this", file])
+                answer = response._result.candidates[0].content.parts[0].text
+                remove("/tmp/temp_image.jpg", "/tmp/temp_audio.mp3")
+                convo.send_message(f"This is a voice/image message from user transcribed by an llm model, reply to the user based on the transcription: {answer}")
+                send(phone, convo.last.text)
+                files = genai.list_files()
+                for file in files:
+                    file.delete()
         except Exception as e:
             print(f"Error: {e}")
         return jsonify({"status": "ok"}), 200
