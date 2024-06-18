@@ -78,14 +78,44 @@ def webhook():
                 prompt = data["text"]["body"]
                 convo.send_message(prompt)
                 send(phone, convo.last.text)
-            elif data["type"] == "image":
-                comment = data.get("caption", "")
-                response_text = f"تم استلام الصورة.\n{comment}" if comment else "تم استلام الصورة."
-                convo.send_message(response_text)
-                send(phone, convo.last.text)
             else:
-                send(phone, "هذا التنسيق غير مدعوم من قبل البوت ☹")
-                return jsonify({"status": "ok"}), 200
+                media_url_endpoint = f'https://graph.facebook.com/v18.0/{data[data["type"]]["id"]}/'
+                headers = {'Authorization': f'Bearer {wa_token}'}
+                media_response = requests.get(media_url_endpoint, headers=headers)
+                media_url = media_response.json()["url"]
+                media_download_response = requests.get(media_url, headers=headers)
+                
+                if data["type"] == "audio":
+                    filename = "/tmp/temp_audio.mp3"
+                elif data["type"] == "image":
+                    filename = "/tmp/temp_image.jpg"
+                elif data["type"] == "document":
+                    doc = fitz.open(stream=media_download_response.content, filetype="pdf")
+                    for page_num, page in enumerate(doc):
+                        destination = f"/tmp/temp_image_{page_num}.jpg"
+                        pix = page.get_pixmap()
+                        pix.save(destination)
+                        comment = data.get("caption", "")
+                        file = genai.upload_file(path=destination, display_name="tempfile")
+                        response = model.generate_content([comment, file])
+                        answer = response._result.candidates[0].content.parts[0].text
+                        convo.send_message(answer)
+                        send(phone, convo.last.text)
+                        remove(destination)
+                else:
+                    send(phone, "هذا التنسيق غير مدعوم من قبل البوت ☹")
+                    return jsonify({"status": "ok"}), 200
+
+                with open(filename, "wb") as temp_media:
+                    temp_media.write(media_download_response.content)
+
+                comment = data.get("caption", "")
+                file = genai.upload_file(path=filename, display_name="tempfile")
+                response = model.generate_content([comment, file])
+                answer = response._result.candidates[0].content.parts[0].text
+                convo.send_message(answer)
+                send(phone, convo.last.text)
+                remove("/tmp/temp_image.jpg", "/tmp/temp_audio.mp3")
         except Exception as e:
             print(f"Error: {e}")
         return jsonify({"status": "ok"}), 200
