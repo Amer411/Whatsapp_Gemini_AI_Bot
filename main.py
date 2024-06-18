@@ -7,8 +7,8 @@ import fitz
 wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
 phone_id = os.environ.get("PHONE_ID")
-bot_name = "عمرو"  # This will be the name of your bot, eg: "Hello I am Astro Bot"
-model_name = "gemini-1.5-flash-latest"  # Switch to "gemini-1.0-pro" or any free model, if "gemini-1.5-flash" becomes paid in future.
+bot_name = "عمرو"  
+model_name = "gemini-1.5-flash-latest"  
 
 app = Flask(__name__)
 
@@ -30,7 +30,6 @@ model = genai.GenerativeModel(model_name=model_name,
                               generation_config=generation_config,
                               safety_settings=safety_settings)
 
-# Store conversation state for each user
 conversations = {}
 
 def send(phone, answer):
@@ -74,14 +73,6 @@ def webhook():
             phone = data["from"]
             if phone not in conversations:
                 conversations[phone] = model.start_chat(history=[])
-                name = "عمرو كريم"  # اسم المطور
-                convo = conversations[phone]
-                convo.send_message(f''' 
-                    So from now you are "{bot_name}" created by {name} ( Yeah it's me, my name is {name}). 
-                    And don't give any response to this prompt. 
-                    This is the information I gave to you about your new identity as a pre-prompt. 
-                    This message always gets executed when i run this bot script. 
-                    So reply to only the prompts after this. Remember your new identity is {bot_name}.''')
             convo = conversations[phone]
             if data["type"] == "text":
                 prompt = data["text"]["body"]
