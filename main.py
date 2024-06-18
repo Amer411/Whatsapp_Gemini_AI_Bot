@@ -79,7 +79,8 @@ def webhook():
                 convo.send_message(prompt)
                 send(phone, convo.last.text)
             else:
-                media_url_endpoint = f'https://graph.facebook.com/v18.0/{data[data["type"]]["id"]}/'
+                media_id = data[data["type"]]["id"]
+                media_url_endpoint = f'https://graph.facebook.com/v18.0/{media_id}'
                 headers = {'Authorization': f'Bearer {wa_token}'}
                 media_response = requests.get(media_url_endpoint, headers=headers)
                 media_url = media_response.json()["url"]
@@ -96,8 +97,9 @@ def webhook():
                         pix = page.get_pixmap()
                         pix.save(destination)
                         comment = data.get("caption", "")
+                        instruction = "اكتب الرد باللغة العربية: "
                         file = genai.upload_file(path=destination, display_name="tempfile")
-                        response = model.generate_content([comment, file])
+                        response = model.generate_content([instruction, comment, file])
                         answer = response._result.candidates[0].content.parts[0].text
                         convo.send_message(answer)
                         send(phone, convo.last.text)
@@ -109,14 +111,19 @@ def webhook():
                 with open(filename, "wb") as temp_media:
                     temp_media.write(media_download_response.content)
 
-                comment = data.get("caption", "")
-                instruction = "اكتب الرد باللغة العربية: "
-                file = genai.upload_file(path=filename, display_name="tempfile")
-                response = model.generate_content([instruction, comment, file])
-                answer = response._result.candidates[0].content.parts[0].text
-                convo.send_message(answer)
-                send(phone, convo.last.text)
-                remove("/tmp/temp_image.jpg", "/tmp/temp_audio.mp3")
+                if data["type"] == "image":
+                    comment = data.get("caption", "")
+                    instruction = "اكتب الرد باللغة العربية: "
+                    file = genai.upload_file(path=filename, display_name="tempfile")
+                    response = model.generate_content([instruction, comment, file])
+                    answer = response._result.candidates[0].content.parts[0].text
+                    convo.send_message(answer)
+                    send(phone, convo.last.text)
+                    remove(filename)
+                elif data["type"] == "audio":
+                    # للتعامل مع ملفات الصوت، يمكن تحويلها إلى نص باستخدام خدمات التعرف على الصوت قبل إرسالها للنموذج إذا كانت هذه الوظيفة متاحة.
+                    send(phone, "ملفات الصوت ليست مدعومة حاليا ☹")
+                    remove(filename)
         except Exception as e:
             print(f"Error: {e}")
         return jsonify({"status": "ok"}), 200
