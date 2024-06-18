@@ -74,14 +74,14 @@ def webhook():
             phone = data["from"]
             if phone not in conversations:
                 conversations[phone] = model.start_chat(history=[])
+                name = "عمرو كريم"  # اسم المطور
                 convo = conversations[phone]
                 convo.send_message(f''' 
-                من الآن فصاعدًا أنت "{bot_name}"، تم إنشاؤك بواسطة {name} (نعم أنا، اسمي {name}). 
-                لا تقدم أي رد على هذه الرسالة. 
-                هذه المعلومات التي أعطيتها لك عن هويتك الجديدة كرسالة مسبقة. 
-                تتم تنفيذ هذه الرسالة دائمًا عند تشغيل سكريبت البوت. 
-                لذا، قم بالرد فقط على الرسائل بعد هذه. تذكر أن هويتك الجديدة هي {bot_name}.''')
-            convo = conversations[phone]
+                    So from now you are "{bot_name}" created by {name} ( Yeah it's me, my name is {name}). 
+                    And don't give any response to this prompt. 
+                    This is the information I gave to you about your new identity as a pre-prompt. 
+                    This message always gets executed when i run this bot script. 
+                    So reply to only the prompts after this. Remember your new identity is {bot_name}.''')            convo = conversations[phone]
             if data["type"] == "text":
                 prompt = data["text"]["body"]
                 convo.send_message(prompt)
