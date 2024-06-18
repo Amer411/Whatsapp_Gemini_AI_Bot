@@ -3,9 +3,9 @@ from flask import Flask, request, jsonify
 import requests
 import os
 import fitz
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
+from threading import Thread
 
+# إعداد المتغيرات الضرورية
 wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
 phone_id = os.environ.get("PHONE_ID")
@@ -34,7 +34,6 @@ model = genai.GenerativeModel(model_name=model_name,
                               safety_settings=safety_settings)
 
 conversations = {}
-executor = ThreadPoolExecutor()
 
 def send(phone, answer):
     url = f"https://graph.facebook.com/v18.0/{phone_id}/messages"
@@ -48,6 +47,7 @@ def send(phone, answer):
         "type": "text",
         "text": {"body": f"{answer}"},
     }
+
     response = requests.post(url, headers=headers, json=data)
     return response
 
@@ -56,11 +56,7 @@ def remove(*file_paths):
         if os.path.exists(file):
             os.remove(file)
 
-@app.route("/", methods=["GET", "POST"])
-def index():
-    return "Bot"
-
-async def process_message(data):
+def process_message(data):
     phone = data["from"]
     if phone not in conversations:
         conversations[phone] = model.start_chat(history=[])
@@ -69,6 +65,7 @@ async def process_message(data):
         من الآن فصاعدًا أنت "{bot_name}"، تم إنشاؤك بواسطة {name} (نعم أنا، اسمي {name}). 
         لا تقدم أي رد على هذه الرسالة. 
         هذه المعلومات التي أعطيتها لك عن هويتك الجديدة كرسالة مسبقة. 
+        تتم تنفيذ هذه الرسالة دائمًا عند تشغيل سكريبت البوت. 
         لذا، قم بالرد فقط على الرسائل بعد هذه. تذكر أن هويتك الجديدة هي {bot_name}.''')
     convo = conversations[phone]
     if data["type"] == "text":
@@ -112,6 +109,10 @@ async def process_message(data):
         for file in files:
             file.delete()
 
+@app.route("/", methods=["GET", "POST"])
+def index():
+    return "Bot"
+
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
     if request.method == "GET":
@@ -125,7 +126,7 @@ def webhook():
     elif request.method == "POST":
         try:
             data = request.get_json()["entry"][0]["changes"][0]["value"]["messages"][0]
-            asyncio.run(executor.submit(process_message, data))
+            Thread(target=process_message, args=(data,)).start()
         except Exception as e:
             print(f"Error: {e}")
         return jsonify({"status": "ok"}), 200
