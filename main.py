@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify
 import requests
 import os
 import fitz
-from threading import Thread
+from celery_config import make_celery
 
 # إعداد المتغيرات الضرورية
 wa_token = os.environ.get("WA_TOKEN")
@@ -14,6 +14,11 @@ bot_name = "عمرو"
 model_name = "gemini-1.5-flash-latest"
 
 app = Flask(__name__)
+app.config.update(
+    CELERY_BROKER_URL='redis://localhost:6379/0',
+    CELERY_RESULT_BACKEND='redis://localhost:6379/0'
+)
+celery = make_celery(app)
 
 generation_config = {
     "temperature": 1,
@@ -56,6 +61,7 @@ def remove(*file_paths):
         if os.path.exists(file):
             os.remove(file)
 
+@celery.task
 def process_message(data):
     phone = data["from"]
     if phone not in conversations:
@@ -126,7 +132,7 @@ def webhook():
     elif request.method == "POST":
         try:
             data = request.get_json()["entry"][0]["changes"][0]["value"]["messages"][0]
-            Thread(target=process_message, args=(data,)).start()
+            process_message.delay(data)
         except Exception as e:
             print(f"Error: {e}")
         return jsonify({"status": "ok"}), 200
