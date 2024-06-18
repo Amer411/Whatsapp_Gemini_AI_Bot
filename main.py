@@ -97,7 +97,7 @@ def webhook():
                         pix = page.get_pixmap()
                         pix.save(destination)
                         comment = data.get("caption", "")
-                        instruction = "أرجو أن تصف محتوى الصورة باللغة العربية."
+                        instruction = "أرجو أن تصف محتوى الصورة بالتفصيل باللغة العربية."
                         combined_text = f"{instruction} {comment}"
                         file = genai.upload_file(path=destination, display_name="tempfile")
                         response = model.generate_content([combined_text, file])
@@ -114,7 +114,7 @@ def webhook():
 
                 if data["type"] == "image":
                     comment = data.get("caption", "")
-                    instruction = "أرجو أن تصف محتوى الصورة باللغة العربية."
+                    instruction = "أرجو أن تصف محتوى الصورة بالتفصيل باللغة العربية."
                     combined_text = f"{instruction} {comment}"
                     file = genai.upload_file(path=filename, display_name="tempfile")
                     response = model.generate_content([combined_text, file])
