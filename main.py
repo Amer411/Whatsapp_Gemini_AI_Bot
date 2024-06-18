@@ -7,8 +7,8 @@ import fitz
 wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
 phone_id = os.environ.get("PHONE_ID")
-bot_name = "عمرو"
-model_name = "gemini-1.5-flash-latest"  
+bot_name = "عمرو"  # This will be the name of your bot, eg: "Hello I am Astro Bot"
+model_name = "gemini-1.5-flash-latest"  # Switch to "gemini-1.0-pro" or any free model, if "gemini-1.5-flash" becomes paid in future.
 
 app = Flask(__name__)
 
@@ -30,6 +30,7 @@ model = genai.GenerativeModel(model_name=model_name,
                               generation_config=generation_config,
                               safety_settings=safety_settings)
 
+# Store conversation state for each user
 conversations = {}
 
 def send(phone, answer):
@@ -105,7 +106,7 @@ def webhook():
                         file = genai.upload_file(path=destination, display_name="tempfile")
                         response = model.generate_content(["ما هذا؟", file])
                         answer = response._result.candidates[0].content.parts[0].text
-                        convo.send_message(f"قم بالتحليل الدقيق : {answer}")
+                        convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج لغوي، قم بالتحليل الدقيق وقم بالرد على المستخدم بناءً على النص المحول: {answer}")
                         send(phone, convo.last.text)
                         remove(destination)
                 else:
@@ -117,7 +118,7 @@ def webhook():
                 response = model.generate_content(["ما هذا؟", file])
                 answer = response._result.candidates[0].content.parts[0].text
                 remove("/tmp/temp_image.jpg", "/tmp/temp_audio.mp3")
-                convo.send_message(f"قم بالتحليل الدقيق: {answer}")
+                convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج لغوي، قم بالتحليل الدقيق وقم بالرد على المستخدم بناءً على النص المحول: {answer}")
                 send(phone, convo.last.text)
                 files = genai.list_files()
                 for file in files:
