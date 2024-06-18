@@ -73,6 +73,11 @@ def webhook():
             phone = data["from"]
             if phone not in conversations:
                 conversations[phone] = model.start_chat(history=[])
+                name = "عمرو كريم"  # اسم المطور
+                convo = conversations[phone]
+                convo.send_message(f''' 
+                    أنا {bot_name}، تم إنشائي بواسطة {name}. 
+                    ''')
             convo = conversations[phone]
             if data["type"] == "text":
                 prompt = data["text"]["body"]
