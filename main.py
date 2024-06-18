@@ -99,7 +99,7 @@ def webhook():
                         prompt = f"اشرح محتوى الصورة مع التعليق: {comment}"
                         response = model.generate_content([prompt, file])
                         answer = response._result.candidates[0].content.parts[0].text
-                        convo.send_message(f"This message is created by an llm model based on the image prompt of user, reply to the user based on this: {answer}")
+                        convo.send_message(answer)
                         send(phone, convo.last.text)
                         remove(destination)
                 else:
@@ -113,7 +113,7 @@ def webhook():
                 response = model.generate_content([prompt, file])
                 answer = response._result.candidates[0].content.parts[0].text
                 remove("/tmp/temp_image.jpg", "/tmp/temp_audio.mp3")
-                convo.send_message(f"هذه رسالة صوتية/صورة من المستخدم تم تحويلها بواسطة نموذج الذكاء الاصطناعي، الرد على المستخدم بناءً على هذا: {answer}")
+                convo.send_message(answer)
                 send(phone, convo.last.text)
                 files = genai.list_files()
                 for file in files:
