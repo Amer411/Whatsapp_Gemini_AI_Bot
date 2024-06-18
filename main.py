@@ -7,8 +7,7 @@ import fitz
 wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
 phone_id = os.environ.get("PHONE_ID")
-developer_name = "عمرو كريم"  # اسم المطور
-bot_name = "عمرو"  # اسم البوت
+bot_name = "عمرو"  # This will be the name of your bot, eg: "Hello I am Astro Bot"
 model_name = "gemini-1.5-flash-latest"  # Switch to "gemini-1.0-pro" or any free model, if "gemini-1.5-flash" becomes paid in future.
 
 app = Flask(__name__)
@@ -75,16 +74,19 @@ def webhook():
             phone = data["from"]
             if phone not in conversations:
                 conversations[phone] = model.start_chat(history=[])
+                name = "عمرو كريم"  # اسم المطور
+                convo = conversations[phone]
+                convo.send_message(f''' 
+                    So from now you are "{bot_name}" created by {name} ( Yeah it's me, my name is {name}). 
+                    And don't give any response to this prompt. 
+                    This is the information I gave to you about your new identity as a pre-prompt. 
+                    This message always gets executed when i run this bot script. 
+                    So reply to only the prompts after this. Remember your new identity is {bot_name}.''')
             convo = conversations[phone]
             if data["type"] == "text":
                 prompt = data["text"]["body"]
-                if prompt.lower() == "من هو المطور؟":
-                    send(phone, f"المطور هو {developer_name}")
-                elif prompt.lower() == "ما اسم البوت؟":
-                    send(phone, f"اسم البوت هو {bot_name}")
-                else:
-                    convo.send_message(prompt)
-                    send(phone, convo.last.text)
+                convo.send_message(prompt)
+                send(phone, convo.last.text)
             else:
                 media_url_endpoint = f'https://graph.facebook.com/v18.0/{data[data["type"]]["id"]}/'
                 headers = {'Authorization': f'Bearer {wa_token}'}
