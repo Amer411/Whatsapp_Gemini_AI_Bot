@@ -16,7 +16,7 @@ generation_config = {
     "temperature": 1,
     "top_p": 0.95,
     "top_k": 0,
-    "max_output_tokens": 8192,
+    "max_output_tokens": 600,
 }
 
 safety_settings = [
@@ -98,8 +98,9 @@ def webhook():
                         pix.save(destination)
                         comment = data.get("caption", "")
                         instruction = "اكتب الرد باللغة العربية: "
+                        combined_text = f"{instruction} {comment}"
                         file = genai.upload_file(path=destination, display_name="tempfile")
-                        response = model.generate_content([instruction, comment, file])
+                        response = model.generate_content([combined_text, file])
                         answer = response._result.candidates[0].content.parts[0].text
                         convo.send_message(answer)
                         send(phone, convo.last.text)
@@ -114,8 +115,9 @@ def webhook():
                 if data["type"] == "image":
                     comment = data.get("caption", "")
                     instruction = "اكتب الرد باللغة العربية: "
+                    combined_text = f"{instruction} {comment}"
                     file = genai.upload_file(path=filename, display_name="tempfile")
-                    response = model.generate_content([instruction, comment, file])
+                    response = model.generate_content([combined_text, file])
                     answer = response._result.candidates[0].content.parts[0].text
                     convo.send_message(answer)
                     send(phone, convo.last.text)
