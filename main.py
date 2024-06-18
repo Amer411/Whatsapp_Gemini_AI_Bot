@@ -110,8 +110,9 @@ def webhook():
                     temp_media.write(media_download_response.content)
 
                 comment = data.get("caption", "")
+                instruction = "اكتب الرد باللغة العربية: "
                 file = genai.upload_file(path=filename, display_name="tempfile")
-                response = model.generate_content([comment, file])
+                response = model.generate_content([instruction, comment, file])
                 answer = response._result.candidates[0].content.parts[0].text
                 convo.send_message(answer)
                 send(phone, convo.last.text)
