@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify
 import requests
 import os
 import fitz
+import threading
 
 wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
@@ -54,6 +55,22 @@ def remove(*file_paths):
         if os.path.exists(file):
             os.remove(file)
 
+def handle_message(data):
+    try:
+        phone = data["from"]
+        if phone not in conversations:
+            conversations[phone] = model.start_chat(history=[])
+        convo = conversations[phone]
+        if data["type"] == "text":
+            prompt = data["text"]["body"]
+            convo.send_message(prompt)
+            send(phone, convo.last.text)
+        else:
+            # Handle media messages...
+            pass
+    except Exception as e:
+        print(f"Error: {e}")
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     return "Bot"
@@ -71,17 +88,7 @@ def webhook():
     elif request.method == "POST":
         try:
             data = request.get_json()["entry"][0]["changes"][0]["value"]["messages"][0]
-            phone = data["from"]
-            if phone not in conversations:
-                conversations[phone] = model.start_chat(history=[])
-            convo = conversations[phone]
-            if data["type"] == "text":
-                prompt = data["text"]["body"]
-                convo.send_message(prompt)
-                send(phone, convo.last.text)
-            else:
-                # Handle media messages...
-                pass
+            threading.Thread(target=handle_message, args=(data,)).start()
         except Exception as e:
             print(f"Error: {e}")
         return jsonify({"status": "ok"}), 200
