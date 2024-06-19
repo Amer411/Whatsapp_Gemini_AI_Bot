@@ -8,7 +8,7 @@ wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
 phone_id = os.environ.get("PHONE_ID")
 bot_name = "عمرو"  # This will be the name of your bot, eg: "Hello I am Astro Bot"
-name = "عمرو كريم"
+developer_name = "عمرو كريم"  # اسم المطور
 model_name = "gemini-1.5-flash-latest"  # Switch to "gemini-1.0-pro" or any free model, if "gemini-1.5-flash" becomes paid in future.
 
 app = Flask(__name__)
@@ -77,7 +77,7 @@ def webhook():
                 conversations[phone] = model.start_chat(history=[])
                 convo = conversations[phone]
                 convo.send_message(f'''
-                من الآن فصاعدًا أنت "{bot_name}"، تم إنشاؤك بواسطة {name} (نعم أنا، اسمي {name}). 
+                من الآن فصاعدًا أنت "{bot_name}"، تم إنشاؤك بواسطة {developer_name} (نعم أنا، اسمي {developer_name}). 
                 لا تقدم أي رد على هذه الرسالة. 
                 هذه المعلومات التي أعطيتها لك عن هويتك الجديدة كرسالة مسبقة. 
                 تتم تنفيذ هذه الرسالة دائمًا عند تشغيل سكريبت البوت. 
