@@ -7,7 +7,8 @@ import fitz
 wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
 phone_id = os.environ.get("PHONE_ID")
-bot_name = "عمرو"  # This will be the name of your bot, e.g., "Hello I am Astro Bot"
+bot_name = "عمرو"  # This will be the name of your bot, eg: "Hello I am Astro Bot"
+name = "عمرو كريم"
 model_name = "gemini-1.5-flash-latest"  # Switch to "gemini-1.0-pro" or any free model, if "gemini-1.5-flash" becomes paid in future.
 
 app = Flask(__name__)
@@ -74,6 +75,13 @@ def webhook():
             phone = data["from"]
             if phone not in conversations:
                 conversations[phone] = model.start_chat(history=[])
+                convo = conversations[phone]
+                convo.send_message(f'''
+                من الآن فصاعدًا أنت "{bot_name}"، تم إنشاؤك بواسطة {name} (نعم أنا، اسمي {name}). 
+                لا تقدم أي رد على هذه الرسالة. 
+                هذه المعلومات التي أعطيتها لك عن هويتك الجديدة كرسالة مسبقة. 
+                تتم تنفيذ هذه الرسالة دائمًا عند تشغيل سكريبت البوت. 
+                لذا، قم بالرد فقط على الرسائل بعد هذه. تذكر أن هويتك الجديدة هي {bot_name}.''')
             convo = conversations[phone]
             if data["type"] == "text":
                 prompt = data["text"]["body"]
