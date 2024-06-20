@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify
 import requests
 import os
 import fitz
-import threading
+from concurrent.futures import ThreadPoolExecutor
 
 wa_token = os.environ.get("WA_TOKEN")
 genai.configure(api_key=os.environ.get("GEN_API"))
@@ -88,7 +88,8 @@ def webhook():
     elif request.method == "POST":
         try:
             data = request.get_json()["entry"][0]["changes"][0]["value"]["messages"][0]
-            threading.Thread(target=handle_message, args=(data,)).start()
+            with ThreadPoolExecutor() as executor:
+                executor.submit(handle_message, data)
         except Exception as e:
             print(f"Error: {e}")
         return jsonify({"status": "ok"}), 200
